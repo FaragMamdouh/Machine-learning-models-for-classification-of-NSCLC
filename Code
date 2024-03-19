@@ -1,0 +1,153 @@
+
+# Import necessary libraries
+from sklearn.ensemble import RandomForestClassifier
+
+import pandas as pd
+import xgboost as xgb
+from sklearn.naive_bayes import GaussianNB
+
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import ( accuracy_score, classification_report, confusion_matrix, f1_score, roc_curve, auc )
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import learning_curve
+from sklearn import svm
+import joblib
+from sklearn.svm import SVC
+
+# Set working directory
+dir = "F:/5 Multi omics/to_ML/DATA/data"
+os.chdir(dir)
+
+# Load dataset
+df = pd.read_csv('filtered_data.csv', index_col=0)
+
+
+# Impute missing values
+imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
+X = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+X = X.T
+# Load labels
+labels = pd.read_csv("meta.csv")
+y = labels["group1"].map({"Normal": 0, "Tumor": 1})
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Train logistic regression model with L1 regularization (Lasso)
+model_lasso = LogisticRegression(solver="saga", max_iter=10000, penalty='l2', C=1)
+model_lasso.fit(X_train, y_train)
+
+# Evaluate the Lasso regularization model
+y_pred_lasso = model_lasso.predict(X_test)
+accuracy_lasso = accuracy_score(y_test, y_pred_lasso)
+conf_matrix_lasso = confusion_matrix(y_test, y_pred_lasso)
+classification_rep_lasso = classification_report(y_test, y_pred_lasso)
+f1_lasso = f1_score(y_test, y_pred_lasso)
+
+
+train_score = model_lasso.score(X_train, y_train)
+test_score = model_lasso.score(X_test, y_test)
+# Print evaluation metrics for Lasso regularization
+#print('\nLasso Regularization:')
+#print(f'Accuracy: {accuracy_lasso}')
+#print('Confusion Matrix:\n', conf_matrix_lasso)
+#print('Classification Report:\n', classification_rep_lasso)
+print(f"F1-Score: {f1_lasso}")
+print(f"Train score: {train_score}")
+print(f"test_score: {test_score}")
+
+# splitting
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+rf_classifier = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+# Fit the model to the training data
+rf_classifier.fit(X_train, y_train)
+
+# Make predictions on the test data
+predictions = rf_classifier.predict(X_test)
+# Evaluate on the test set
+conf_matrix = confusion_matrix(y_test, predictions)
+accuracy = accuracy_score(y_test, predictions)
+f1 = f1_score(y_test, predictions)
+
+train_score = rf_classifier.score(X_train, y_train)
+test_score = rf_classifier.score(X_test, y_test)
+
+print("F1 Score:", f1)
+#----------------------------------------------------------------------------
+# Convert the data into DMatrix format (optimized data structure for XGBoost)
+dtrain = xgb.DMatrix(X_train, label=y_train)
+dtest = xgb.DMatrix(X_test, label=y_test)
+
+# Set hyperparameters
+params = {
+    'objective': 'multi:softmax',  # Multiclass classification
+    'num_class': 3,  # Number of classes in the target variable
+    'max_depth': 3,
+    'eta': 0.1,
+    'subsample': 0.8,
+    'colsample_bytree': 0.8
+}
+
+# Train the XGBoost model
+num_rounds = 100
+model = xgb.train(params, dtrain, num_rounds)
+
+# Make predictions on the test set
+y_pred = model.predict(dtest)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+report = classification_report(y_test, y_pred)
+
+print(f"Accuracy: {accuracy}")
+print("Classification Report:\n", report)
+#---------------------------------------------------------------------------
+
+# splitting
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Create and train the Gaussian Naive Bayes model
+model = GaussianNB()
+model.fit(X_train, y_train)
+
+# Make predictions on the test set
+y_pred = model.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+conf_matrix = confusion_matrix(y_test, y_pred)
+classification_rep = classification_report(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+
+# Print evaluation metrics for Lasso regularization
+print('\nLasso Regularization:')
+print(f'Accuracy: {accuracy}')
+print('Confusion Matrix:\n', conf_matrix)
+print('Classification Report:\n', classification_rep)
+print(f"F1-Score: {f1}")
+
+#-----------------------------------------------------------------------------#
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+# Create an SVM model
+svm_model = SVC(kernel='linear', C=1, max_iter=10000)
+svm_model.fit(X_train, y_train)
+
+y_pred = svm_model.predict(X_test)
+
+accuracy = accuracy_score(y_test, y_pred)
+confusion_mat = confusion_matrix(y_test, y_pred)
+classification_rep = classification_report(y_test, y_pred)
+f1 = f1_score(y_test, y_pred, average='weighted')  # You can choose 'micro', 'macro', or 'weighted' for the average parameter
+train_score = svm_model.score(X_train, y_train)
+test_score = svm_model.score(X_test, y_test)
+print(f"Accuracy: {accuracy}")
+print(f"Confusion Matrix:\n{confusion_mat}")
+print(f"Classification Report:\n{classification_rep}")
+print(f"F1 Score: {f1}")
+print(f"Training Accuracy: {train_score}")
+print(f"Test Accuracy: {test_score}")
